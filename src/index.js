@@ -6,7 +6,9 @@ import { PixabayAPI } from './js/pixabay-api';
 
 const form = document.getElementById('search-form');
 const gallery = document.querySelector('.gallery');
-const moreBtn = document.querySelector('.load-more');
+const elObserv = document.getElementById('bottom-line');
+
+form.addEventListener('submit', onSubmit);
 
 const lightbox = new SimpleLightbox('.gallery a');
 
@@ -18,48 +20,57 @@ searchImg.setParams({
   per_page: 40,
 });
 
-form.addEventListener('submit', onSubmit);
-moreBtn.addEventListener('click', fetchCard);
+const options = {
+  rootMargin: '750px',
+};
+const io = new IntersectionObserver(ioHandle, options);
+
+function ioHandle(entries) {
+  entries.forEach(async entry => {
+    if (entry.isIntersecting) {
+      const { hits } = await fetchCard();
+      handleResponce(hits);
+    }
+  });
+}
 
 async function onSubmit(e) {
   e.preventDefault();
   gallery.innerHTML = '';
   searchImg.setSearchQuestion(e.currentTarget.elements.searchQuery.value);
-  const totalHits = await fetchCard();
+  const { totalHits, hits } = await fetchCard();
   if (totalHits) {
     Notify.success(`Hooray! We found ${totalHits} images.`);
-    moreBtn.classList.remove('is-hidden');
   }
+  io.observe(elObserv);
+  handleResponce(hits);
 }
 
 async function fetchCard() {
   Loading.circle();
   try {
-    const { hits, totalHits } = await searchImg.search();
-    if (hits.length === 0)
+    const data = await searchImg.search();
+    if (data.hits.length === 0)
       throw new Error(
         'Sorry, there are no images matching your search query. Please try again'
       );
-    handleResponce(hits);
-    return totalHits;
+    return data;
   } catch (err) {
-    console.log(err);
     Notify.failure(err.message);
-    moreBtn.classList.add('is-hidden');
   } finally {
     Loading.remove();
   }
 }
 
 function handleResponce(data) {
-  if (searchImg.currentPage() > searchImg.totalPage) {
-    moreBtn.classList.add('is-hidden');
-    Notify.failure(
+  if (searchImg.currentPage() >= searchImg.totalPage) {
+    io.unobserve(elObserv);
+    Notify.info(
       "We're sorry, but you've reached the end of search results."
     );
   }
   renderImgCard(data);
-    lightbox.refresh();
+  lightbox.refresh();
 }
 
 function renderImgCard(arrCard) {
