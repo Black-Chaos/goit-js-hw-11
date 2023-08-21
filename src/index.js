@@ -6,7 +6,9 @@ import { PixabayAPI } from './js/pixabay-api';
 
 const form = document.getElementById('search-form');
 const gallery = document.querySelector('.gallery');
-const moreBtn = document.querySelector('.load-more');
+const elObserv = document.getElementById('bottom-line');
+
+form.addEventListener('submit', onSubmit);
 
 const lightbox = new SimpleLightbox('.gallery a');
 
@@ -18,8 +20,16 @@ searchImg.setParams({
   per_page: 40,
 });
 
-form.addEventListener('submit', onSubmit);
-moreBtn.addEventListener('click', fetchCard);
+const options = {
+  rootMargin: '750px',
+};
+const io = new IntersectionObserver(ioHandle, options);
+
+function ioHandle(entries) {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) fetchCard();
+  });
+}
 
 async function onSubmit(e) {
   e.preventDefault();
@@ -28,8 +38,9 @@ async function onSubmit(e) {
   const totalHits = await fetchCard();
   if (totalHits) {
     Notify.success(`Hooray! We found ${totalHits} images.`);
-    moreBtn.classList.remove('is-hidden');
-  }
+    }
+    options.rootMargin = 
+  io.observe(elObserv);
 }
 
 async function fetchCard() {
@@ -43,9 +54,8 @@ async function fetchCard() {
     handleResponce(hits);
     return totalHits;
   } catch (err) {
-    console.log(err);
+    io.unobserve(elObserv);
     Notify.failure(err.message);
-    moreBtn.classList.add('is-hidden');
   } finally {
     Loading.remove();
   }
@@ -53,13 +63,13 @@ async function fetchCard() {
 
 function handleResponce(data) {
   if (searchImg.currentPage() > searchImg.totalPage) {
-    moreBtn.classList.add('is-hidden');
+    io.unobserve(elObserv);
     Notify.failure(
       "We're sorry, but you've reached the end of search results."
     );
   }
   renderImgCard(data);
-    lightbox.refresh();
+  lightbox.refresh();
 }
 
 function renderImgCard(arrCard) {
