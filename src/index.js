@@ -26,35 +26,37 @@ const options = {
 const io = new IntersectionObserver(ioHandle, options);
 
 function ioHandle(entries) {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) fetchCard();
+  entries.forEach(async entry => {
+    if (entry.isIntersecting) {
+      const { hits } = await fetchCard();
+      handleResponce(hits);
+    }
   });
 }
 
 async function onSubmit(e) {
   e.preventDefault();
+  io.unobserve(elObserv);
   gallery.innerHTML = '';
   searchImg.setSearchQuestion(e.currentTarget.elements.searchQuery.value);
-  const totalHits = await fetchCard();
+  const { totalHits, hits } = await fetchCard();
   if (totalHits) {
     Notify.success(`Hooray! We found ${totalHits} images.`);
-    }
-    options.rootMargin = 
+  }
   io.observe(elObserv);
+  handleResponce(hits);
 }
 
 async function fetchCard() {
   Loading.circle();
   try {
-    const { hits, totalHits } = await searchImg.search();
-    if (hits.length === 0)
+    const data = await searchImg.search();
+    if (data.hits.length === 0)
       throw new Error(
         'Sorry, there are no images matching your search query. Please try again'
       );
-    handleResponce(hits);
-    return totalHits;
+    return data;
   } catch (err) {
-    io.unobserve(elObserv);
     Notify.failure(err.message);
   } finally {
     Loading.remove();
@@ -62,9 +64,9 @@ async function fetchCard() {
 }
 
 function handleResponce(data) {
-  if (searchImg.currentPage() > searchImg.totalPage) {
+  if (searchImg.currentPage() >= searchImg.totalPage) {
     io.unobserve(elObserv);
-    Notify.failure(
+    Notify.info(
       "We're sorry, but you've reached the end of search results."
     );
   }
